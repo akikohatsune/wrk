@@ -18,7 +18,7 @@ else ifeq ($(TARGET), freebsd)
 endif
 
 SRC  := wrk.c net.c ssl.c aprintf.c stats.c script.c units.c \
-		ae.c zmalloc.c http_parser.c lua_cjson.c
+		ae.c zmalloc.c http_parser.c lua_cjson.c strbuf.c fpconv.c
 BIN  := wrk
 VER  ?= $(shell git describe --tags --always --dirty)
 
