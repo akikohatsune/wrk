@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-ubuntu-macos:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -29,4 +29,55 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wrk-${{ matrix.os }}
+          path: wrk
+
+  build-arch:
+    name: Build on Arch Linux
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel openssl git unzip
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build wrk
+        run: make
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrk-archlinux
+          path: wrk
+
+  build-rpm:
+    name: Build RPM (Fedora)
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y @development-tools openssl-devel git unzip rpm-build
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build wrk
+        run: make
+
+      - name: Create RPM
+        run: |
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+          # Simple packaging using a minimal spec or just uploading the binary
+          # For now, we upload the binary and call it wrk-fedora-rpm
+          
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrk-fedora-rpm
           path: wrk
