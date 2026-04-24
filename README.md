@@ -1,12 +1,60 @@
-# wrk - a HTTP benchmarking tool
+# wrk - a HTTP benchmarking tool (Modified Fork)
 
   wrk is a modern HTTP benchmarking tool capable of generating significant
   load when run on a single multi-core CPU. It combines a multithreaded
   design with scalable event notification systems such as epoll and kqueue.
 
-  An optional LuaJIT script can perform HTTP request generation, response
-  processing, and custom reporting. Details are available in SCRIPTING and
-  several examples are located in [scripts/](scripts/).
+  This version is a **modified fork** that adds several features and infrastructure
+  improvements over the original wg/wrk.
+## New Features & Enhancements
+
+  * **JSON Output:** Support for exporting benchmark results directly to JSON format.
+  * **Live P99 Latency:** Real-time reporting of P99 latency statistics.
+  * **Staggered Connections:** Support for "warmup" periods via staggered connection establishment.
+  * **Integrated `lua-cjson`:** Full integration of the cjson library for faster and more flexible JSON handling within Lua scripts.
+  * **Warmup Support:** Logic for gradual load increase to avoid overwhelming servers during initial spikes.
+
+## Usage of New Features
+
+### JSON Output
+To get results in a machine-readable JSON format, use the `-J` or `--json` flag:
+```bash
+wrk -t12 -c400 -d30s -J http://127.0.0.1:8080/
+```
+The output will include detailed request stats, latency percentiles (p50, p75, p90, p99, p999), and error counts.
+
+### Warmup (Staggered Connections)
+To avoid a massive burst of connections at the very start, you can stagger connection establishment over a warmup period using the `-w` or `--warmup` flag:
+```bash
+wrk -t12 -c400 -d30s -w 10s http://127.0.0.1:8080/
+```
+In this example, the 400 connections will be opened gradually over the first 10 seconds of the test.
+
+### Live P99 Latency Reporting
+When running a standard test (without `--json`), `wrk` now provides real-time progress updates every second, including the current P99 latency:
+```
+  Progress:   1s,   56200.00 req/s,    606.33MB/s, p99: 850.12us
+  Progress:   2s,   56500.00 req/s,    608.12MB/s, p99: 865.40us
+```
+
+### Lua CJSON
+You can now use the `cjson` module directly within your Lua scripts for high-performance JSON encoding and decoding:
+```lua
+local cjson = require "cjson"
+function request()
+    local body = cjson.encode({ hello = "world" })
+    return wrk.format("POST", "/", nil, body)
+end
+```
+
+## Basic Usage
+
+## Build & CI/CD Improvements
+
+  * **Universal ARM64 Support:** Robust build process for ARM64 (Android/Termux/iOS) using QEMU-emulated Docker environments.
+  * **Expanded OS Support:** Automated CI builds for Ubuntu, macOS, Arch Linux, and Fedora (RPM).
+  * **Modern Toolchain:** Explicit support for Node.js 24 and Ubuntu 22.04 environments.
+  * **Deterministic Dependencies:** Bundled source/archives for LuaJIT and OpenSSL in `deps/` to ensure consistent builds across different systems.
 
 ## Basic Usage
 
@@ -83,3 +131,15 @@
   Software Unrestricted (TSU) exception (see the BIS Export
   Administration Regulations, Section 740.13) for both object code and
   source code.
+
+## Recent Changes
+
+The following updates were made to the CI/CD pipeline and project configuration:
+
+1.  **Fixed ARM64 Build:** Replaced the direct cross-compilation approach with a QEMU-emulated Docker build (`ubuntu:22.04` on `linux/arm64`) to ensure all dependencies (LuaJIT, OpenSSL) are correctly compiled.
+2.  **Updated Runner Environments:**
+    *   Main runners pinned to `ubuntu-22.04`.
+    *   Explicitly configured **Node.js 24** across all jobs using `actions/setup-node@v4`.
+    *   Fedora build pinned to **Fedora 36**.
+    *   Arch Linux build updated to use latest packages with full sync (`pacman -Syyu`).
+3.  **CI Optimization:** Reorganized job steps to ensure code checkout occurs before dependency installation in containerized environments.
