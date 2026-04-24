@@ -143,7 +143,35 @@ int main(int argc, char **argv) {
     uint64_t bytes    = 0;
     errors errors     = { 0 };
 
-    sleep(cfg.duration);
+    uint64_t last_complete = 0;
+    uint64_t last_bytes = 0;
+    uint64_t last_time = time_us();
+
+    for (uint64_t i = 0; i < cfg.duration; i++) {
+        sleep(1);
+
+        uint64_t current_complete = 0;
+        uint64_t current_bytes = 0;
+        for (uint64_t j = 0; j < cfg.threads; j++) {
+            current_complete += threads[j].complete;
+            current_bytes += threads[j].bytes;
+        }
+
+        uint64_t now = time_us();
+        long double elapsed_s = (now - last_time) / 1000000.0;
+        long double req_s = (current_complete - last_complete) / elapsed_s;
+        long double bw_s = (current_bytes - last_bytes) / elapsed_s;
+
+        printf("  Progress: %3"PRIu64"s, %10.2Lf req/s, %10sB/s\n",
+               i + 1, req_s, format_binary(bw_s));
+
+        last_complete = current_complete;
+        last_bytes = current_bytes;
+        last_time = now;
+
+        if (stop) break;
+    }
+
     stop = 1;
 
     for (uint64_t i = 0; i < cfg.threads; i++) {
