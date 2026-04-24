@@ -61,7 +61,11 @@ $(ODIR):
 
 $(ODIR)/bytecode.c: src/wrk.lua $(DEPS)
 	@echo LUAJIT $<
-	@$(SHELL) -c 'PATH="obj/bin:$(PATH)" luajit -b "$(CURDIR)/$<" "$(CURDIR)/$@"'
+	@if [ -n "$(CROSS)" ]; then \
+		$(SHELL) -c 'luajit -b "$(CURDIR)/$<" "$(CURDIR)/$@"'; \
+	else \
+		$(SHELL) -c 'PATH="obj/bin:$(PATH)" luajit -b "$(CURDIR)/$<" "$(CURDIR)/$@"'; \
+	fi
 
 $(ODIR)/version.o:
 	@echo 'const char *VERSION="$(VER)";' | $(CC) -xc -c -o $@ -
@@ -86,12 +90,16 @@ $(ODIR)/$(OPENSSL): deps/$(OPENSSL).tar.gz | $(ODIR)
 
 $(ODIR)/lib/libluajit-5.1.a: $(ODIR)/$(LUAJIT)
 	@echo Building LuaJIT...
-	@$(MAKE) -C $< PREFIX=$(abspath $(ODIR)) BUILDMODE=static install
-	@cd $(ODIR)/bin && ln -s luajit-2.1.0-beta3 luajit
+	@$(MAKE) -C $< PREFIX=$(abspath $(ODIR)) BUILDMODE=static CROSS=$(CROSS) install
+	@cd $(ODIR)/bin && ln -sf luajit-2.1.0-beta3 luajit
 
 $(ODIR)/lib/libssl.a: $(ODIR)/$(OPENSSL)
 	@echo Building OpenSSL...
-	@$(SHELL) -c "cd $< && ./config $(OPENSSL_OPTS)"
+	@if [ -n "$(CROSS)" ]; then \
+		$(SHELL) -c "cd $< && ./Configure linux-aarch64 $(OPENSSL_OPTS) --cross-compile-prefix=$(CROSS)"; \
+	else \
+		$(SHELL) -c "cd $< && ./config $(OPENSSL_OPTS)"; \
+	fi
 	@$(MAKE) -C $< depend
 	@$(MAKE) -C $<
 	@$(MAKE) -C $< install_sw
