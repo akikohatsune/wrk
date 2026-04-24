@@ -62,7 +62,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          dnf install -y @development-tools openssl-devel git unzip rpm-build perl-FindBin perl-IPC-Cmd
+          dnf install -y @development-tools openssl-devel git unzip rpm-build perl-FindBin perl-IPC-Cmd perl-File-Compare perl-File-Copy
 
       - name: Checkout code
         uses: actions/checkout@v4
