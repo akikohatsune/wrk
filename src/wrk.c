@@ -10,9 +10,11 @@ static struct config {
     uint64_t threads;
     uint64_t timeout;
     uint64_t pipeline;
+    uint64_t warmup;
     bool     delay;
     bool     dynamic;
     bool     latency;
+    bool     json;
     char    *host;
     char    *script;
     SSL_CTX *ctx;
@@ -47,6 +49,7 @@ static void usage() {
            "    -c, --connections <N>  Connections to keep open   \n"
            "    -d, --duration    <T>  Duration of test           \n"
            "    -t, --threads     <N>  Number of threads to use   \n"
+           "    -w, --warmup      <T>  Warmup time (staggered connect) \n"
            "                                                      \n"
            "    -s, --script      <S>  Load Lua script file       \n"
            "    -H, --header      <H>  Add header to request      \n"
@@ -136,8 +139,10 @@ int main(int argc, char **argv) {
     sigaction(SIGINT, &sa, NULL);
 
     char *time = format_time_s(cfg.duration);
-    printf("Running %s test @ %s\n", time, url);
-    printf("  %"PRIu64" threads and %"PRIu64" connections\n", cfg.threads, cfg.connections);
+    if (!cfg.json) {
+        printf("Running %s test @ %s\n", time, url);
+        printf("  %"PRIu64" threads and %"PRIu64" connections\n", cfg.threads, cfg.connections);
+    }
 
     uint64_t start    = time_us();
     uint64_t complete = 0;
@@ -163,8 +168,15 @@ int main(int argc, char **argv) {
         long double req_s = (current_complete - last_complete) / elapsed_s;
         long double bw_s = (current_bytes - last_bytes) / elapsed_s;
 
-        printf("  Progress: %3"PRIu64"s, %10.2Lf req/s, %10sB/s\n",
-               i + 1, req_s, format_binary(bw_s));
+        if (!cfg.json) {
+            char *bw_str = format_binary(bw_s);
+            uint64_t p99 = stats_percentile(statistics.latency, 99.0);
+            char *p99_str = format_time_us(p99);
+            printf("  Progress: %3"PRIu64"s, %10.2Lf req/s, %10sB/s, p99: %s\n",
+                   i + 1, req_s, bw_str, p99_str);
+            free(bw_str);
+            free(p99_str);
+        }
 
         last_complete = current_complete;
         last_bytes = current_bytes;
@@ -265,6 +277,12 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+static int delayed_connect(aeEventLoop *loop, long long id, void *data) {
+    connection *c = data;
+    connect_socket(c->thread, c);
+    return AE_NOMORE;
+}
+
 void *thread_main(void *arg) {
     thread *thread = arg;
 
@@ -278,16 +296,23 @@ void *thread_main(void *arg) {
     thread->cs = zcalloc(thread->connections * sizeof(connection));
     connection *c = thread->cs;
 
+    aeEventLoop *loop = thread->loop;
+
     for (uint64_t i = 0; i < thread->connections; i++, c++) {
         c->thread = thread;
         c->ssl     = cfg.ctx ? SSL_new(cfg.ctx) : NULL;
         c->request = request;
         c->length  = length;
         c->delayed = cfg.delay;
-        connect_socket(thread, c);
+
+        if (cfg.warmup > 0) {
+            uint64_t delay_ms = (i * cfg.warmup * 1000) / thread->connections;
+            aeCreateTimeEvent(loop, delay_ms, delayed_connect, c, NULL);
+        } else {
+            connect_socket(thread, c);
+        }
     }
 
-    aeEventLoop *loop = thread->loop;
     aeCreateTimeEvent(loop, RECORD_INTERVAL_MS, record_rate, thread, NULL);
 
     thread->start = time_us();
@@ -531,6 +556,7 @@ static char *copy_url_part(char *url, struct http_parser_url *parts, enum http_p
 
     return part;
 }
+
 static struct option longopts[] = {
     { "connections", required_argument, NULL, 'c' },
     { "duration",    required_argument, NULL, 'd' },
@@ -546,7 +572,6 @@ static struct option longopts[] = {
     { NULL,          0,                 NULL,  0  }
 };
 
-
 static int parse_args(struct config *cfg, char **url, struct http_parser_url *parts, char **headers, int argc, char **argv) {
     char **header = headers;
     int c;
@@ -557,7 +582,7 @@ static int parse_args(struct config *cfg, char **url, struct http_parser_url *pa
     cfg->duration    = 10;
     cfg->timeout     = SOCKET_TIMEOUT_MS;
 
-    while ((c = getopt_long(argc, argv, "t:c:d:s:H:T:Lrv?", longopts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "t:c:d:s:H:T:Lrv?Jw:", longopts, NULL)) != -1) {
         switch (c) {
             case 't':
                 if (scan_metric(optarg, &cfg->threads)) return -1;
@@ -568,6 +593,9 @@ static int parse_args(struct config *cfg, char **url, struct http_parser_url *pa
             case 'd':
                 if (scan_time(optarg, &cfg->duration)) return -1;
                 break;
+            case 'w':
+                if (scan_time(optarg, &cfg->warmup)) return -1;
+                break;
             case 's':
                 cfg->script = optarg;
                 break;
@@ -576,6 +604,9 @@ static int parse_args(struct config *cfg, char **url, struct http_parser_url *pa
                 break;
             case 'L':
                 cfg->latency = true;
+                break;
+            case 'J':
+                cfg->json = true;
                 break;
             case 'T':
                 if (scan_time(optarg, &cfg->timeout)) return -1;
@@ -650,16 +681,4 @@ static void print_stats_latency(stats *stats) {
         print_units(n, format_time_us, 10);
         printf("\n");
     }
-}
-   }
-}
-ize_t i = 0; i < sizeof(percentiles) / sizeof(long double); i++) {
-        long double p = percentiles[i];
-        uint64_t n = stats_percentile(stats, p);
-        printf("%7.0Lf%%", p);
-        print_units(n, format_time_us, 10);
-        printf("\n");
-    }
-}
-   }
 }
