@@ -48,6 +48,9 @@ static const struct luaL_Reg threadlib[] = {
 lua_State *script_create(char *file, char *url, char **headers) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
+
+    luaopen_cjson(L);
+    lua_setglobal(L, "cjson");
     (void) luaL_dostring(L, "wrk = require \"wrk\"");
 
     luaL_newmetatable(L, "wrk.addr");
