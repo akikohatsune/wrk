@@ -19,6 +19,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        if: runner.os == 'Linux'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -36,19 +42,23 @@ jobs:
 
   build-arm64:
     name: Build for ARM64 (Android/Termux/iOS)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Cross-Compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev git unzip perl
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Build wrk for ARM64
         run: |
-          make CC=aarch64-linux-gnu-gcc HOST_CC=gcc
+          docker run --rm --platform linux/arm64 -v ${{ github.workspace }}:/workspace -w /workspace ubuntu:22.04 \
+            /bin/bash -c "apt-get update && apt-get install -y build-essential libssl-dev git unzip perl && make"
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
@@ -58,17 +68,21 @@ jobs:
 
   build-arch:
     name: Build on Arch Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
       image: archlinux:latest
     steps:
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel openssl git unzip perl
-
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set Arch Linux Snapshot (4/2022)
+        run: |
+          echo 'Server = https://archive.archlinux.org/repos/2022/04/01/$repo/os/$arch' > /etc/pacman.d/mirrorlist
+          pacman -Syyu --noconfirm || pacman -Syyu --noconfirm --overwrite "*"
+
+      - name: Install dependencies
+        run: |
+          pacman -S --noconfirm base-devel openssl git unzip perl
 
       - name: Build wrk
         run: make
@@ -81,9 +95,9 @@ jobs:
 
   build-rpm:
     name: Build RPM (Fedora)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     container:
-      image: fedora:latest
+      image: fedora:36
     steps:
       - name: Install dependencies
         run: |
