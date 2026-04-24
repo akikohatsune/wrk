@@ -20,7 +20,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libssl-dev git unzip
+          sudo apt-get install -y build-essential libssl-dev git unzip perl
 
       - name: Build wrk
         run: make
@@ -40,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel openssl git unzip
+          pacman -S --noconfirm base-devel openssl git unzip perl
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          dnf install -y @development-tools openssl-devel git unzip rpm-build
+          dnf install -y @development-tools openssl-devel git unzip rpm-build perl-FindBin perl-IPC-Cmd
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -70,12 +70,6 @@ jobs:
       - name: Build wrk
         run: make
 
-      - name: Create RPM
-        run: |
-          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-          # Simple packaging using a minimal spec or just uploading the binary
-          # For now, we upload the binary and call it wrk-fedora-rpm
-          
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
