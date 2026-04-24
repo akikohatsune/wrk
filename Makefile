@@ -27,7 +27,7 @@ OBJ  := $(patsubst %.c,$(ODIR)/%.o,$(SRC)) $(ODIR)/bytecode.o $(ODIR)/version.o
 LIBS := -lluajit-5.1 $(LIBS)
 
 DEPS    :=
-CFLAGS  += -I$(ODIR)/include
+CFLAGS  += -I$(ODIR)/include -Isrc
 LDFLAGS += -L$(ODIR)/lib
 
 ifneq ($(WITH_LUAJIT),)
