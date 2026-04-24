@@ -531,19 +531,21 @@ static char *copy_url_part(char *url, struct http_parser_url *parts, enum http_p
 
     return part;
 }
-
 static struct option longopts[] = {
     { "connections", required_argument, NULL, 'c' },
     { "duration",    required_argument, NULL, 'd' },
     { "threads",     required_argument, NULL, 't' },
+    { "warmup",      required_argument, NULL, 'w' },
     { "script",      required_argument, NULL, 's' },
     { "header",      required_argument, NULL, 'H' },
     { "latency",     no_argument,       NULL, 'L' },
     { "timeout",     required_argument, NULL, 'T' },
+    { "json",        no_argument,       NULL, 'J' },
     { "help",        no_argument,       NULL, 'h' },
     { "version",     no_argument,       NULL, 'v' },
     { NULL,          0,                 NULL,  0  }
 };
+
 
 static int parse_args(struct config *cfg, char **url, struct http_parser_url *parts, char **headers, int argc, char **argv) {
     char **header = headers;
@@ -642,6 +644,16 @@ static void print_stats_latency(stats *stats) {
     long double percentiles[] = { 50.0, 75.0, 90.0, 99.0 };
     printf("  Latency Distribution\n");
     for (size_t i = 0; i < sizeof(percentiles) / sizeof(long double); i++) {
+        long double p = percentiles[i];
+        uint64_t n = stats_percentile(stats, p);
+        printf("%7.0Lf%%", p);
+        print_units(n, format_time_us, 10);
+        printf("\n");
+    }
+}
+   }
+}
+ize_t i = 0; i < sizeof(percentiles) / sizeof(long double); i++) {
         long double p = percentiles[i];
         uint64_t n = stats_percentile(stats, p);
         printf("%7.0Lf%%", p);
