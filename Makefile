@@ -1,6 +1,11 @@
 CFLAGS  += -std=c99 -Wall -O2 -D_REENTRANT
 LIBS    := -lm -lssl -lcrypto -lpthread
 
+CROSS   ?=
+ifneq ($(CROSS),)
+    CC = $(CROSS)gcc
+endif
+
 TARGET  := $(shell uname -s | tr '[A-Z]' '[a-z]' 2>/dev/null || echo unknown)
 
 ifeq ($(TARGET), sunos)
@@ -90,7 +95,7 @@ $(ODIR)/$(OPENSSL): deps/$(OPENSSL).tar.gz | $(ODIR)
 
 $(ODIR)/lib/libluajit-5.1.a: $(ODIR)/$(LUAJIT)
 	@echo Building LuaJIT...
-	@$(MAKE) -C $< PREFIX=$(abspath $(ODIR)) BUILDMODE=static CROSS=$(CROSS) install
+	@$(MAKE) -C $< PREFIX=$(abspath $(ODIR)) BUILDMODE=static CROSS=$(CROSS) CC=gcc install
 	@cd $(ODIR)/bin && ln -sf luajit-2.1.0-beta3 luajit
 
 $(ODIR)/lib/libssl.a: $(ODIR)/$(OPENSSL)

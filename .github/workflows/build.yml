@@ -59,7 +59,7 @@ jobs:
 
       - name: Build wrk for ARM64
         run: |
-          make CC=aarch64-linux-gnu-gcc CROSS=aarch64-linux-gnu-
+          make CROSS=aarch64-linux-gnu-
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
