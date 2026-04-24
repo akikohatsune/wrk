@@ -48,7 +48,7 @@ jobs:
 
       - name: Build wrk for ARM64
         run: |
-          make CC=aarch64-linux-gnu-gcc
+          make CC=aarch64-linux-gnu-gcc HOST_CC=gcc
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
