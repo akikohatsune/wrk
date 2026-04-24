@@ -52,6 +52,7 @@ static void usage() {
            "    -H, --header      <H>  Add header to request      \n"
            "        --latency          Print latency statistics   \n"
            "        --timeout     <T>  Socket/request timeout     \n"
+           "    -J, --json             Print results as JSON      \n"
            "    -v, --version          Print version details      \n"
            "                                                      \n"
            "  Numeric arguments may include a SI unit (1k, 1M, 1G)\n"
@@ -198,25 +199,62 @@ int main(int argc, char **argv) {
         stats_correct(statistics.latency, interval);
     }
 
-    print_stats_header();
-    print_stats("Latency", statistics.latency, format_time_us);
-    print_stats("Req/Sec", statistics.requests, format_metric);
-    if (cfg.latency) print_stats_latency(statistics.latency);
+    if (cfg.json) {
+        long double mean = stats_mean(statistics.latency);
+        long double stdev = stats_stdev(statistics.latency, mean);
+        uint64_t max = statistics.latency->max;
+        uint64_t p50 = stats_percentile(statistics.latency, 50.0);
+        uint64_t p75 = stats_percentile(statistics.latency, 75.0);
+        uint64_t p90 = stats_percentile(statistics.latency, 90.0);
+        uint64_t p99 = stats_percentile(statistics.latency, 99.0);
+        uint64_t p999 = stats_percentile(statistics.latency, 99.9);
 
-    char *runtime_msg = format_time_us(runtime_us);
+        printf("{\n");
+        printf("  \"requests\": %"PRIu64",\n", complete);
+        printf("  \"duration_us\": %"PRIu64",\n", runtime_us);
+        printf("  \"bytes\": %"PRIu64",\n", bytes);
+        printf("  \"requests_sec\": %.2Lf,\n", req_per_s);
+        printf("  \"bytes_sec\": %.2Lf,\n", bytes_per_s);
+        printf("  \"latency\": {\n");
+        printf("    \"min_us\": %"PRIu64",\n", statistics.latency->min);
+        printf("    \"max_us\": %"PRIu64",\n", max);
+        printf("    \"mean_us\": %.2Lf,\n", mean);
+        printf("    \"stdev_us\": %.2Lf,\n", stdev);
+        printf("    \"p50_us\": %"PRIu64",\n", p50);
+        printf("    \"p75_us\": %"PRIu64",\n", p75);
+        printf("    \"p90_us\": %"PRIu64",\n", p90);
+        printf("    \"p99_us\": %"PRIu64",\n", p99);
+        printf("    \"p999_us\": %"PRIu64"\n", p999);
+        printf("  },\n");
+        printf("  \"errors\": {\n");
+        printf("    \"connect\": %"PRIu32",\n", errors.connect);
+        printf("    \"read\": %"PRIu32",\n", errors.read);
+        printf("    \"write\": %"PRIu32",\n", errors.write);
+        printf("    \"timeout\": %"PRIu32",\n", errors.timeout);
+        printf("    \"status\": %"PRIu32"\n", errors.status);
+        printf("  }\n");
+        printf("}\n");
+    } else {
+        print_stats_header();
+        print_stats("Latency", statistics.latency, format_time_us);
+        print_stats("Req/Sec", statistics.requests, format_metric);
+        if (cfg.latency) print_stats_latency(statistics.latency);
 
-    printf("  %"PRIu64" requests in %s, %sB read\n", complete, runtime_msg, format_binary(bytes));
-    if (errors.connect || errors.read || errors.write || errors.timeout) {
-        printf("  Socket errors: connect %d, read %d, write %d, timeout %d\n",
-               errors.connect, errors.read, errors.write, errors.timeout);
+        char *runtime_msg = format_time_us(runtime_us);
+
+        printf("  %"PRIu64" requests in %s, %sB read\n", complete, runtime_msg, format_binary(bytes));
+        if (errors.connect || errors.read || errors.write || errors.timeout) {
+            printf("  Socket errors: connect %"PRIu32", read %"PRIu32", write %"PRIu32", timeout %"PRIu32"\n",
+                   errors.connect, errors.read, errors.write, errors.timeout);
+        }
+
+        if (errors.status) {
+            printf("  Non-2xx or 3xx responses: %"PRIu32"\n", errors.status);
+        }
+
+        printf("Requests/sec: %9.2Lf\n", req_per_s);
+        printf("Transfer/sec: %10sB\n", format_binary(bytes_per_s));
     }
-
-    if (errors.status) {
-        printf("  Non-2xx or 3xx responses: %d\n", errors.status);
-    }
-
-    printf("Requests/sec: %9.2Lf\n", req_per_s);
-    printf("Transfer/sec: %10sB\n", format_binary(bytes_per_s));
 
     if (script_has_done(L)) {
         script_summary(L, runtime_us, complete, bytes);
@@ -610,4 +648,6 @@ static void print_stats_latency(stats *stats) {
         print_units(n, format_time_us, 10);
         printf("\n");
     }
+}
+   }
 }
