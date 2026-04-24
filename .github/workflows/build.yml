@@ -4,9 +4,6 @@ on:
   push:
   pull_request:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-ubuntu-macos:
     name: Build on ${{ matrix.os }}
@@ -35,25 +32,24 @@ jobs:
           path: wrk
 
   build-arm64:
-    name: Build for ARM64 (Android/Termux/iOS)
-    runs-on: ubuntu-latest
+    name: Build for ARM64 (Native)
+    runs-on: ubuntu-24.04-arm64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Cross-Compiler
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libssl-dev git unzip perl
+          sudo apt-get install -y build-essential libssl-dev git unzip perl
 
-      - name: Build wrk for ARM64
-        run: |
-          make CC=aarch64-linux-gnu-gcc
+      - name: Build wrk
+        run: make
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: wrk-arm64-linux
+          name: wrk-arm64
           path: wrk
 
   build-arch:
